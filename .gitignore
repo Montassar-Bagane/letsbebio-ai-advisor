@@ -1,0 +1,48 @@
+# secrets — never commit
+.env
+*.key
+key.txt
+
+# build & distribution archives
+reco-engine.zip
+*.zip
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# generated data (rebuilt by the pipeline in seconds)
+products.jsonl
+products_enriched.jsonl
+catalogue.json
+routines.json
+qa_report.txt
+pack_matches.txt
+low_confidence_ids.txt
+embeddings_cache.json
+validation_run.json
+
+# the database dump (400 MB — keep it outside the repository)
+*.sql.gz
+sql_new_*.sql
+
+# latex build artefacts
+docs/pfe-report-latex/*.aux
+docs/pfe-report-latex/*.log
+docs/pfe-report-latex/*.out
+docs/pfe-report-latex/*.toc
+docs/pfe-report-latex/*.lof
+docs/pfe-report-latex/*.lot
+docs/pfe-report-latex/*.fls
+docs/pfe-report-latex/*.fdb_latexmk
+docs/pfe-report-latex/*.synctex.gz
+
+# os & editors
+.DS_Store
+Thumbs.db
+.gemini/
+.vscode/
+.idea/
+*.ps1

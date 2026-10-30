@@ -1,0 +1,253 @@
+%------------------------------------------------- Chapter 3: framework
+\chapterseparator{3}{Methodology, Data Collection, and Analytical Framework}
+
+\chapter{Methodology, Data Collection, and Analytical Framework}
+
+\section{Introduction}
+
+This chapter details the methodological, empirical, and analytical foundation of the recommendation system. In accordance with the CRISP-DM lifecycle, it formalises the overall project workflow, presents the database collection and schema auditing, provides quantitative exploratory data analyses of the live catalogue, details the preprocessing and extraction mechanics, derives the formal multi-dimensional product data model, and defends the core algorithmic choices that govern routine synthesis.
+
+\section{Overall project workflow}
+
+The project workflow translates raw, uncurated relational database dumps into an interactive shopping adviser. Figure~\ref{fig:project_workflow} diagrams the end-to-end data processing workflow:
+\begin{enumerate}
+  \item \textbf{Extraction \& Ingestion}: Extraction of product rows from WooCommerce tables via optimized read-only SQL queries;
+  \item \textbf{Text Normalisation \& Cleaning}: Stripping legacy HTML tags, standardizing Unicode encodings, lowercasing, and stripping diacritics;
+  \item \textbf{Heuristic Pattern Mining}: Matching title and body texts against weighted regex patterns representing controlled cosmetic vocabularies;
+  \item \textbf{Pack Decomposition}: Inferring the composite contents of unlinked commercial packs using TF-IDF token rarity matching;
+  \item \textbf{Catalogue Synthesis}: Assembling the canonical, structured JSON knowledge base with confidence scores;
+  \item \textbf{Scoring \& Routine Assembly}: Computing multi-dimensional suitability scores, enforcing hard dermatological exclusions, and populating 4-step routines;
+  \item \textbf{Conversational Layer}: Exposing the scoring engine via RESTful FastAPI endpoints to the WordPress plugin and LLM ReAct agent.
+\end{enumerate}
+
+\placeholderscreenshot{project_workflow.png}{End-to-end project methodology and data transformation workflow}{fig:project_workflow}
+
+\section{Collection and description of data}
+
+\subsection{Origin and schema of the database}
+
+The underlying data was obtained from a production database export (391\,MB) of the client's live WooCommerce platform (\clientsite), restored locally into a dedicated MariaDB 11 instance. The database contains 109 tables prefixed with \texttt{wp\_11e347\_}. Figure~\ref{fig:woocommerce_erd} illustrates the Entity-Relationship Diagram (ERD) capturing the core tables governing products, metadata, and taxonomies.
+
+\placeholderscreenshot{woocommerce_erd.png}{Entity-Relationship Diagram (ERD) of relevant WooCommerce database tables}{fig:woocommerce_erd}
+
+Product records reside in the polymorphic \texttt{posts} table under \texttt{post\_type = 'product'}. Descriptive metadata and commercial attributes are stored as key-value pairs in \texttt{postmeta}, while brand and category hierarchies are managed through relational joins across \texttt{terms}, \texttt{term\_taxonomy}, and \texttt{term\_relationships}.
+
+\subsection{Structure of the retained dataset}
+
+Table~\ref{tab:catalogue} presents the quantitative breakdown of the database export.
+
+\begin{table}[H]
+\caption{Composition of the client database export}
+\label{tab:catalogue}
+\centering
+\begin{tabularx}{\textwidth}{X r}
+\toprule
+\textbf{Property} & \textbf{Value} \\
+\midrule
+Total product records in database & 1{,}073 \\
+Active published products & 612 \\
+Draft and test products & 323 \\
+Trashed and archived items & 138 \\
+Registered product categories (three-tier hierarchy) & 69 \\
+Distinct commercial brands & 41 \\
+Product tags registered & \textbf{0} \\
+Average long description length & 1{,}414 characters \\
+Active products lacking descriptions & 60 \\
+Ready-made cosmetic packs & 52 \\
+WooCommerce native grouped products & \textbf{0} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A critical retention filter was established: draft, trashed, private test products, and merchandising holding categories (such as \emph{Accueil} or \emph{Promotions}) were excluded. The active subset comprises 609 clean, distinct commercial items suitable for customer recommendation.
+
+\subsection{Preliminary exploratory data analysis (EDA)}
+
+Systematic exploratory SQL scripts (\texttt{pipeline/0\_explore.sql}) were executed to evaluate attribute sparsity and textual richness.
+
+\paragraph{Attribute sparsity.} Table~\ref{tab:attributes} highlights the extreme sparsity of structured product attributes in the source database.
+
+\begin{table}[H]
+\caption{Coverage of native WooCommerce attributes usable for recommendation}
+\label{tab:attributes}
+\centering
+\begin{tabularx}{\textwidth}{X r}
+\toprule
+\textbf{Attribute} & \textbf{Populated products out of 612} \\
+\midrule
+Skin type (\texttt{pa\_type-de-peau}) & 6 (0.98\%) \\
+Tint / Shade (\texttt{pa\_teinte}) & 10 (1.63\%) \\
+Net weight (\texttt{pa\_poids}) & 2 (0.33\%) \\
+Product tags (\texttt{product\_tag}) & 0 (0.00\%) \\
+Stock Keeping Unit (\texttt{\_sku}) & 0 (0.00\%) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The native structured attribute layer is effectively non-existent. Out-of-the-shelf recommender plugins fail outright because they expect \texttt{pa\_type-de-peau} or tag taxonomies to be populated across the catalogue.
+
+\paragraph{Category distribution.} Figure~\ref{fig:category_dist} displays the distribution of published items across the primary functional categories. Rather than functional skin concerns, native categories reflect physical anatomy (\emph{Visage, Corps, Cheveux}) and merchandising banners, confirming that category assignment alone cannot guide clinical skin routines.
+
+\placeholderscreenshot{category_distribution.png}{Distribution of published products across primary catalogue categories}{fig:category_dist}
+
+\paragraph{Textual completeness.} In contrast to the empty attribute tables, product descriptions proved remarkably rich and consistent. Figure~\ref{fig:desc_lengths} plots the distribution of description lengths, showing a substantial cluster of detailed descriptions averaging 1{,}414 characters.
+
+\placeholderscreenshot{description_lengths.png}{Histogram of product description character lengths demonstrating rich descriptive copy}{fig:desc_lengths}
+
+\subsection{Concern depth versus skin-type depth}
+
+A key analytical finding emerged when comparing catalogue volume across cosmetic concerns versus skin types. Table~\ref{tab:concerns} and Table~\ref{tab:skintypes} illustrate this contrast.
+
+\begin{table}[H]
+\caption{Product inventory depth across primary customer concerns}
+\label{tab:concerns}
+\centering
+\begin{tabularx}{\textwidth}{X r}
+\toprule
+\textbf{Customer concern} & \textbf{Available catalogue products} \\
+\midrule
+Digestion and gut health & 89 \\
+Energy and vitality & 75 \\
+Immune defense & 72 \\
+Blood sugar and circulation & 71 \\
+Sleep and stress relief & 62 \\
+Skin redness and couperose & 59 \\
+Slimming and detox & 54 \\
+Hyperpigmentation, anti-ageing, dehydration & 50--60 each \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\caption{Product inventory depth across explicit skin types}
+\label{tab:skintypes}
+\centering
+\begin{tabularx}{\textwidth}{X r}
+\toprule
+\textbf{Skin type} & \textbf{Available topical products} \\
+\midrule
+Oily skin & 27 \\
+Mature skin & 27 \\
+Sensitive skin & 26 \\
+Acne-prone skin & 25 \\
+Dry skin & 20 \\
+Combination skin & 13 \\
+Normal skin & \textbf{8} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+This empirical discrepancy was decisive: customer concerns provide 50 to 90 matching products, whereas skin types offer only 8 to 27. An architecture filtering strictly by skin type would restrict a customer with normal skin to a meager pool of eight products. Consequently, **the recommender is engineered with concerns as the primary retrieval axis, applying skin type as a compatibility filter and exclusion safeguard**.
+
+\section{Data preparation and preprocessing}
+
+\subsection{Text cleaning and normalisation}
+
+Raw descriptions contained inconsistent HTML tags, unescaped entities, mixed Unicode encodings, and diverse typographical conventions. The preprocessing pipeline applies:
+\begin{itemize}
+  \item HTML markup stripping via regular expressions, preserving newline structure for bullet points;
+  \item Lowercasing and diacritic stripping (e.g. converting \emph{é, è, ê, à} to standard ASCII) to prevent regex miss-matches;
+  \item Whitespace collapse and punctuation normalization.
+\end{itemize}
+
+\subsection{Multi-level pattern matching}
+
+Because commercial French cosmetic copy is formulaic (consistently using phrasing such as \emph{``indiqué pour les peaux sèches'', ``lutte contre les taches brunes'', ``appliquez matin et soir''}), extraction rules were constructed as tiered regular expressions:
+\begin{itemize}
+  \item \textbf{Strong patterns} (weight = 2): Explicit, unequivocal formulations (e.g. \emph{``anti-imperfections'', ``hydratation intense''});
+  \item \textbf{Weak patterns} (weight = 1): Ambiguous or ubiquitous words (e.g. \emph{``doux'', ``apaisant'', ``quotidien''});
+  \item \textbf{Title priority bonus} (weight = 3): Matches in the product title carry high confidence, preventing peripheral marketing claims in the description from overriding the primary product identity.
+\end{itemize}
+
+\subsection{Pack decomposition and TF-IDF rarity weighting}
+
+The client's 52 commercial packs represent expert-curated beauty routines. However, because they are stored as standard products without relational ties to their component products, pack contents had to be resolved textually.
+
+A naive substring search over-matches common words (e.g. matching any product containing the word \emph{``Huile''} or \emph{``Creme''}). To resolve this, an algorithm based on **Inverse Document Frequency (IDF)** \cite{sparckjones1972, robertson2004} was developed. Words are assigned weights inversely proportional to their document frequency across the entire catalogue:
+\begin{equation}
+  \text{IDF}(t) = \ln \left( 1 + \frac{N}{n_t} \right)
+\end{equation}
+where $N$ is total catalogue size and $n_t$ is the number of descriptions containing term $t$. Rare terms (such as specific botanical extracts or unique product names) receive high weights, eliminating false-positive component associations.
+
+\section{The derived product data model}
+
+Table~\ref{tab:datamodel} details the derived data model. It strictly separates verified database fields from inferred attributes, maintaining an explicit confidence score for every derived record.
+
+\begin{table}[H]
+\caption{Derived product data model for recommendation}
+\label{tab:datamodel}
+\centering
+\begin{tabularx}{\textwidth}{L{3.9cm} L{2.4cm} X}
+\toprule
+\textbf{Field} & \textbf{Data type} & \textbf{Origin and semantic role} \\
+\midrule
+\multicolumn{3}{l}{\textit{Commercial fields --- strictly copied from MariaDB, never hallucinated}} \\
+\midrule
+\texttt{id}, \texttt{name}, \texttt{slug} & int, string & Primary identifiers from \texttt{posts} \\
+\texttt{brand} & string & Manufacturer taxonomy from \texttt{terms} \\
+\texttt{price}, \texttt{stock} & decimal, int & Relational \texttt{postmeta}, queried live \\
+\texttt{rating}, \texttt{total\_sales} & decimal, int & Commercial popularity metrics \\
+\midrule
+\multicolumn{3}{l}{\textit{Derived fields --- inferred via automated extraction}} \\
+\midrule
+\texttt{product\_format} & enum (35) & Physical formulation (gel, oil, serum, mask, cream) \\
+\texttt{zone} & enum (11) & Anatomical target (face, eye contour, lips, hair, body) \\
+\texttt{skin\_type} & enum[] (8) & Compatible skin typologies (oily, dry, sensitive, etc.) \\
+\texttt{hair\_type} & enum[] (9) & Hair suitability (dry, damaged, oily, curly, etc.) \\
+\texttt{concerns} & enum[] (25) & Dermatological and wellness concerns addressed \\
+\texttt{usage\_time} & enum[] (3) & Application timing (morning, evening, indifferent) \\
+\texttt{routine\_step} & enum (8) & Canonical sequence position (cleanse, treat, hydrate...) \\
+\texttt{is\_pack} & boolean & Boolean flag identifying commercial bundles \\
+\texttt{pack\_contents\_ids} & int[] & Foreign IDs of constituent single items \\
+\texttt{confidence} & float & Algorithmic extraction reliability score (0.0 to 1.0) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\placeholderscreenshot{data_model_schema.png}{Conceptual schema of the derived product data model and routine composition}{fig:data_model_schema}
+
+\subsection{Decoupling format from anatomical zone}
+
+Early prototypes revealed a critical edge case: recommending a lip scrub as the opening cleanser of a facial routine. In cosmetics, a lip exfoliator and a facial scrub share the identical physical format (\texttt{gommage}), but target distinct anatomical zones. By isolating \texttt{zone} as an independent dimension, facial routines strictly filter for \texttt{zone = 'visage'}.
+
+\section{Scoring mathematics and routine assembly logic}
+
+When a shopper profile $P = \langle C, S, Z, B \rangle$ (concerns $C$, skin type $S$, target zone $Z$, budget limit $B$) is submitted, the engine evaluates each eligible product $x$ via a deterministic suitability scoring function $S(x, P)$:
+\begin{equation}
+  S(x, P) = w_c \cdot \sum_{c \in C} \mathbb{I}(c \in x.\text{concerns}) + w_s \cdot \mathbb{I}(S \in x.\text{skin\_type}) + w_p \cdot \text{popularity}(x) - \text{penalty}(x)
+\end{equation}
+where:
+\begin{itemize}
+  \item Hard negative exclusions apply: if product $x$ explicitly states incompatibility with skin type $S$, $S(x, P) = -\infty$;
+  \item Step assignment: products are partitioned into sequential slots (Step 1: Cleanse, Step 2: Tone, Step 3: Treat, Step 4: Moisturize, Step 5: Protect);
+  \item Routine selection: for each slot, the highest-scoring candidate respecting cumulative budget constraints is selected.
+\end{itemize}
+
+\section{Technical choices and architectural stack}
+
+Table~\ref{tab:stack} summarizes the selected technologies across each architectural tier.
+
+\begin{table}[H]
+\caption{Technology stack and engineering justification}
+\label{tab:stack}
+\centering
+\begin{tabularx}{\textwidth}{L{2.8cm} L{3.2cm} X}
+\toprule
+\textbf{Layer} & \textbf{Technology} & \textbf{Engineering justification} \\
+\midrule
+Extraction pipeline & Python 3 standard library & Zero external framework dependencies; high execution speed; portable \\
+Database tier & MariaDB 11, read-only & Native WooCommerce repository; secure read-only isolation prevents catalogue corruption \\
+Service backend & FastAPI + Uvicorn & High-throughput asynchronous ASGI; automatic OpenAPI schema validation \\
+Storefront proxy & WordPress custom plugin & PHP shortcode rendering; eliminates browser CORS; keeps internal microservice endpoints protected \\
+Frontend demo & HTML5 + Vanilla JS & Zero build-step overhead; lightweight responsive UI matching client store aesthetics \\
+LLM interface & OpenAI-compatible HTTP & Decoupled vendor abstraction; allows switching providers seamlessly via environment variables \\
+Containerisation & Docker Compose & Isolated multi-container deployment ensures complete reproducibility \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Conclusion}
+
+The empirical analysis of the client catalogue established that while structured attributes were completely absent, descriptive prose was rich in dermatological signal. By establishing a rigorous preprocessing pipeline, resolving unlinked packs with TF-IDF weighting, and defining a multi-dimensional data model with deterministic scoring, the project laid the foundation for safe, explainable recommendations. Chapter~4 details the concrete implementation, containerised deployment, and empirical evaluation of the complete system.
+
+\cleardoublepage

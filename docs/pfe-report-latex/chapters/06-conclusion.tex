@@ -1,0 +1,51 @@
+%--------------------------------------------------------- general conclusion
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{General Conclusion and Perspectives}
+\markboth{General Conclusion and Perspectives}{}
+\chapter*{General Conclusion and Perspectives}
+
+This project set out to bridge the gap between customer vernacular and e-commerce catalogue browsing in the specialized beauty and wellness sector: translating symptom-level inquiries into safe, coherent, and personalized product routines.
+
+\section*{Synthesis of contributions}
+
+The starting point of the project was a production WooCommerce catalogue of 1{,}073 items whose native structured attributes were empty: zero registered product tags and a skin-type attribute populated on only 6 products out of 612. By applying the CRISP-DM methodology, the project delivered a multi-tiered engineering solution structured around three core contributions:
+
+\begin{enumerate}
+  \item \textbf{Automated information extraction as a first-class citizen}: Rather than treating the absent attributes as a blocking bottleneck requiring manual catalogue curation, an automated regex-based pipeline normalises descriptions and extracts format, zone, skin type, concerns, and routine steps for 609 products in under two seconds. Pack contents were accurately resolved using TF-IDF token rarity weighting, recovering 20 expert-composed routine templates without false positives.
+  \item \textbf{Evidence-driven, concern-centric architecture}: Catalogue distribution metrics proved that cosmetic concerns provide 50 to 90 products per category, compared to only 8 products for normal skin. Structuring the recommendation engine around concerns as the primary axis with skin type as a hard compatibility constraint prevented trivial, empty result sets.
+  \item \textbf{Separation of selection from expression}: Product candidate scoring, routine assembly, and pricing calculations are strictly governed by a deterministic scoring engine. The language model acts exclusively as an orchestrator within a ReAct loop, parsing customer utterances and phrasing conversational advice. Product cards are rendered strictly from verified database IDs returned by tool calls, providing an absolute architectural guarantee against product or price hallucinations.
+\end{enumerate}
+
+\section*{Difficulties encountered and lessons learned}
+
+Three principal engineering challenges shaped the project:
+\begin{itemize}
+  \item \textbf{Interface-driven defect discovery}: Subtle semantic flaws---such as recommending a lip scrub as a facial cleanser or proposing slimming teas for digestive bloating---were completely invisible in raw database tables and became obvious only when testing the interactive UI with realistic user profiles. Building runnable web prototypes early proved crucial.
+  \item \textbf{Precision--recall trade-off in unlinked packs}: Initial substring matching produced frequent false positives. Introducing strict IDF rarity weighting reduced the count of resolved packs from 39 to 20, but guaranteed that the surviving templates were 100\% authentic.
+  \item \textbf{Inference budget constraints}: Operating under a zero-budget API constraint led directly to the development of the rule-based extraction pipeline and deterministic scoring core, yielding a system that runs at zero marginal cost and delivers sub-50ms latency.
+\end{itemize}
+
+\section*{Future perspectives and enhancements}
+
+Four directions for future evolution are identified:
+\begin{enumerate}
+  \item \textbf{Dermatological expert validation}: Completing the formal validation review document with certified cosmetic and pharmaceutical specialists to audit active-ingredient contraindications;
+  \item \textbf{Native WooCommerce grouped products}: Converting resolved commercial packs into native WooCommerce grouped products in the database, formalizing bundle relationships permanently;
+  \item \textbf{Multimodal diagnostic input}: Extending the conversational interface to accept user-uploaded skin photos, leveraging lightweight vision models to assist in erythema or blemish detection;
+  \item \textbf{Production analytics and feedback loops}: Instrumenting the live storefront to monitor routine completion rates, cart conversion ratios, and catalogue gaps over time, transforming inventory shortages into monthly procurement reports for the client.
+\end{enumerate}
+
+\cleardoublepage
+
+\section*{Personal assessment}
+
+The most durable lesson of this internship concerns where engineering effort
+actually goes. The recommendation algorithm was straightforward; the data it
+required did not exist, and constructing it consumed most of the work. The
+defects that mattered were found by using the system rather than by reading the
+code. And the decision that most improved the result was a refusal: declining to
+let a language model choose products, and confining it to the tasks it performs
+better than rules.
+
+\cleardoublepage

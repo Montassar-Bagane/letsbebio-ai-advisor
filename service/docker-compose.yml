@@ -1,0 +1,12 @@
+services:
+  reco:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8000:8000"   # bind to localhost; put a reverse proxy in front
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

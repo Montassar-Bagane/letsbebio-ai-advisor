@@ -1,0 +1,1016 @@
+/* ==========================================================================
+   Moteur de recommandation — widget storefront
+
+   Design notes
+   ------------
+   The widget is a shop assistant: it turns "j'ai des taches et la peau
+   sensible" into an ordered set of products with a price. So the memorable
+   element is the RÉCAPITULATIF — a dispensary-style summary closing the
+   routine with the step count and the total. Everything else stays quiet.
+
+   Numbering is used because a skincare routine genuinely is a sequence:
+   cleanse before treat, treat before protect. The order carries information.
+
+   Body text inherits the theme's font on purpose, so the widget reads as
+   part of the shop. Only the structural layer — labels, figures, step
+   numbers — uses its own faces.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Petrona:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+.reco-app {
+  /* deep cypress + rose: herbal, not clinical; rose is reserved strictly
+     for the shopper's own concern so it always means "this is about you" */
+  --reco-paper: #FBFAF7;
+  --reco-sand:  #EFEBE1;
+  --reco-ink:   #17251F;
+  --reco-muted: #62736B;
+  --reco-line:  #E0E4DD;
+  --reco-deep:  #23574A;
+  --reco-deep-soft: #E4EDE8;
+  --reco-signal: #B4405C;
+  --reco-signal-soft: #F7E9ED;
+
+  --reco-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --reco-display: "Petrona", Georgia, serif;
+
+  --reco-r: 3px;
+  --reco-gap: 12px;
+
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--reco-ink);
+  max-width: 900px;
+}
+
+.reco-app *,
+.reco-app *::before,
+.reco-app *::after { box-sizing: border-box; }
+
+.reco-app h3,
+.reco-app h4 { font-family: var(--reco-display); letter-spacing: -0.005em; }
+
+/* ---------- structural label: one job, used everywhere ---------- */
+
+.reco-label {
+  display: block;
+  font-family: var(--reco-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--reco-muted);
+  margin-bottom: 9px;
+}
+
+/* ---------- ask ---------- */
+
+.reco-ask {
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: var(--reco-paper);
+  padding: 18px 20px 20px;
+  margin-bottom: 26px;
+}
+
+.reco-field + .reco-field { margin-top: 18px; }
+
+.reco-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.reco-app .reco-chip {
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  padding: 7px 13px;
+  border: 1px solid var(--reco-line);
+  border-radius: 100px;
+  background: #fff;
+  color: var(--reco-ink);
+  cursor: pointer;
+  transition: border-color .14s ease, background .14s ease, color .14s ease;
+}
+.reco-app .reco-chip:hover { border-color: var(--reco-deep); }
+.reco-app .reco-chip.is-on {
+  background: var(--reco-deep);
+  border-color: var(--reco-deep);
+  color: #fff;
+}
+/* the shopper's concern is the one thing in rose */
+.reco-app .reco-chips[data-group="concern"] .reco-chip.is-on {
+  background: var(--reco-signal);
+  border-color: var(--reco-signal);
+}
+
+.reco-app .reco-chip:focus-visible,
+.reco-app input:focus-visible,
+.reco-app button:focus-visible,
+.reco-app a:focus-visible {
+  outline: 2px solid var(--reco-deep);
+  outline-offset: 2px;
+}
+
+/* ---------- free text ---------- */
+
+.reco-free-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.reco-app #reco-free {
+  flex: 1 1 260px;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 11px 13px;
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: #fff;
+  color: var(--reco-ink);
+}
+.reco-app #reco-free::placeholder { color: var(--reco-muted); opacity: .75; }
+
+.reco-app #reco-free-go {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: var(--reco-r);
+  background: var(--reco-deep);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity .14s ease;
+}
+.reco-app #reco-free-go:hover { opacity: .88; }
+.reco-app #reco-free-go[disabled] { opacity: .5; cursor: default; }
+
+.reco-free-msg {
+  margin: 9px 0 0;
+  font-size: 0.83rem;
+  color: var(--reco-muted);
+  min-height: 1.2em;
+}
+.reco-free-msg.is-set { color: var(--reco-deep); }
+
+/* ---------- sections ---------- */
+
+.reco-sect { margin-bottom: 34px; }
+.reco-app .reco-sect h3 {
+  font-size: 1.32rem;
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+.reco-sect-note {
+  margin: 0 0 16px;
+  font-size: 0.86rem;
+  color: var(--reco-muted);
+}
+
+/* ---------- the routine: a real sequence ---------- */
+
+.reco-app .reco-ribbon {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 40px;
+  position: relative;
+  counter-reset: reco-step;
+}
+.reco-app .reco-ribbon::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  bottom: 18px;
+  width: 1px;
+  background: var(--reco-line);
+}
+.reco-app .reco-step {
+  position: relative;
+  margin: 0 0 var(--reco-gap);
+  counter-increment: reco-step;
+}
+.reco-app .reco-step::before {
+  content: counter(reco-step);
+  position: absolute;
+  left: -40px;
+  top: 1px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: var(--reco-deep);
+  color: #fff;
+  font-family: var(--reco-mono);
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reco-step > .reco-label {
+  color: var(--reco-deep);
+  margin-bottom: 6px;
+}
+
+/* ---------- récapitulatif: the signature ---------- */
+
+.reco-total {
+  margin-top: 4px;
+  margin-left: 40px;
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: var(--reco-sand);
+  padding: 15px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.reco-total-lines { flex: 1 1 200px; }
+.reco-total-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--reco-mono);
+  font-size: 0.8rem;
+  color: var(--reco-muted);
+  padding: 2px 0;
+}
+.reco-total-row.is-sum {
+  color: var(--reco-ink);
+  font-size: 1rem;
+  font-weight: 500;
+  border-top: 1px solid var(--reco-line);
+  margin-top: 7px;
+  padding-top: 8px;
+}
+.reco-app .reco-total-cta {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 11px 20px;
+  border-radius: var(--reco-r);
+  background: var(--reco-deep);
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity .14s ease;
+}
+.reco-app .reco-total-cta:hover { opacity: .88; color: #fff; }
+
+/* ---------- cards ---------- */
+
+.reco-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+  gap: var(--reco-gap);
+}
+
+.reco-app .reco-card {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: var(--reco-paper);
+  transition: border-color .14s ease, background .14s ease;
+}
+.reco-app .reco-card:hover { border-color: var(--reco-deep); background: #fff; }
+
+.reco-app .reco-card img {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex: none;
+  background: var(--reco-deep-soft);
+}
+.reco-body { flex: 1; min-width: 0; }
+
+.reco-app .reco-card h4 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.28;
+}
+.reco-app .reco-card h4 a { color: inherit; text-decoration: none; }
+.reco-app .reco-card h4 a:hover { text-decoration: underline; }
+
+.reco-brand {
+  font-size: 0.76rem;
+  color: var(--reco-muted);
+  margin-top: 2px;
+}
+
+.reco-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  margin-top: 9px;
+}
+.reco-tag {
+  font-family: var(--reco-mono);
+  font-size: 0.64rem;
+  letter-spacing: .03em;
+  padding: 3px 7px;
+  border-radius: 2px;
+  background: var(--reco-deep-soft);
+  color: var(--reco-deep);
+}
+.reco-tag.is-match { background: var(--reco-signal-soft); color: var(--reco-signal); }
+.reco-tag.is-plain {
+  background: transparent;
+  border: 1px solid var(--reco-line);
+  color: var(--reco-muted);
+}
+.reco-tag.is-out {
+  background: transparent;
+  border: 1px solid var(--reco-signal);
+  color: var(--reco-signal);
+}
+
+.reco-price {
+  margin-left: auto;
+  font-family: var(--reco-mono);
+  font-size: 0.92rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.reco-why {
+  margin: 8px 0 0;
+  font-size: 0.83rem;
+  color: var(--reco-muted);
+}
+
+.reco-app .reco-buy {
+  display: inline-block;
+  margin-top: 10px;
+  font-family: var(--reco-mono);
+  font-size: 0.7rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 7px 13px;
+  border: 1px solid var(--reco-deep);
+  border-radius: var(--reco-r);
+  color: var(--reco-deep);
+  text-decoration: none;
+  transition: background .14s ease, color .14s ease;
+}
+.reco-app .reco-buy:hover { background: var(--reco-deep); color: #fff; }
+
+/* ---------- packs ---------- */
+
+.reco-app .reco-pack { border-left: 3px solid var(--reco-signal); }
+.reco-app .reco-pack ul {
+  margin: 9px 0 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  color: var(--reco-muted);
+}
+.reco-app .reco-pack li { margin: 1px 0; }
+
+/* ---------- states ---------- */
+
+.reco-empty {
+  border: 1px dashed var(--reco-line);
+  border-radius: var(--reco-r);
+  padding: 26px 22px;
+  text-align: center;
+  color: var(--reco-muted);
+  font-size: 0.92rem;
+}
+.reco-empty strong { color: var(--reco-ink); font-weight: 600; }
+
+/* skeleton: shows the shape of what's coming, so the page doesn't jump */
+.reco-skel {
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: var(--reco-paper);
+  height: 92px;
+  margin-bottom: var(--reco-gap);
+  position: relative;
+  overflow: hidden;
+}
+.reco-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent, rgba(35, 87, 74, .07), transparent);
+  transform: translateX(-100%);
+  animation: reco-sweep 1.25s ease-in-out infinite;
+}
+@keyframes reco-sweep { to { transform: translateX(100%); } }
+
+/* ---------- mobile ---------- */
+
+@media (max-width: 560px) {
+  .reco-app { font-size: 15px; }
+  .reco-ask { padding: 15px 14px 17px; }
+  .reco-app .reco-ribbon { padding-left: 32px; }
+  .reco-app .reco-step::before { left: -32px; width: 22px; height: 22px; }
+  .reco-app .reco-ribbon::before { left: 10px; }
+  .reco-total { margin-left: 32px; }
+  .reco-app .reco-total-cta { width: 100%; text-align: center; }
+  .reco-app .reco-card img { width: 52px; height: 52px; }
+  .reco-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reco-app *,
+  .reco-app *::after { transition: none !important; animation: none !important; }
+}
+
+/* ==========================================================================
+   Conseiller conversationnel
+
+   The shop assistant, as a conversation. The thread is deliberately plain —
+   the product cards inside it are the thing worth looking at, and they are
+   the same cards used everywhere else so the two shortcodes feel like one
+   product rather than two features.
+   ========================================================================== */
+
+.reco-chat { max-width: 720px; }
+
+.reco-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.reco-thread {
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: var(--reco-paper);
+  padding: 18px;
+  max-height: 62vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.reco-bubble {
+  max-width: 84%;
+  margin-bottom: 12px;
+  padding: 11px 15px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+}
+.reco-bubble p { margin: 0 0 8px; }
+.reco-bubble p:last-child { margin-bottom: 0; }
+
+.reco-bubble.is-assistant {
+  background: #fff;
+  border: 1px solid var(--reco-line);
+  border-bottom-left-radius: 4px;
+}
+.reco-bubble.is-user {
+  background: var(--reco-deep);
+  color: #fff;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+/* typing indicator — the only motion in the widget, and it earns its place
+   because the agent can take several seconds to think */
+.reco-bubble.is-thinking {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 15px;
+  width: fit-content;
+}
+.reco-bubble.is-thinking span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--reco-muted);
+  animation: reco-blink 1.3s ease-in-out infinite;
+}
+.reco-bubble.is-thinking span:nth-child(2) { animation-delay: .18s; }
+.reco-bubble.is-thinking span:nth-child(3) { animation-delay: .36s; }
+@keyframes reco-blink {
+  0%, 60%, 100% { opacity: .25; }
+  30% { opacity: 1; }
+}
+
+.reco-bubble-products {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding-left: 6px;
+  border-left: 2px solid var(--reco-deep-soft);
+}
+
+/* ---------- routine bundle cta (one-click add all) ---------- */
+
+.reco-bundle-cta {
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f7faf8 0%, #eaf2ee 100%);
+  border: 1.5px solid #c2dbd1;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(35, 87, 74, .06);
+  animation: reco-followup-in .3s ease both;
+}
+
+.reco-bundle-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reco-bundle-title {
+  font-size: 0.88rem;
+  color: var(--reco-ink);
+}
+.reco-bundle-title strong {
+  color: var(--reco-deep);
+}
+
+.reco-bundle-price {
+  font-family: var(--reco-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--reco-deep);
+}
+
+.reco-app .reco-buy-all {
+  width: 100%;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: var(--reco-deep);
+  color: #fff;
+  cursor: pointer;
+  transition: all .2s ease;
+  box-shadow: 0 2px 8px rgba(35, 87, 74, .25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.reco-app .reco-buy-all:hover {
+  background: #173d34;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(35, 87, 74, .35);
+}
+
+.reco-app .reco-buy-all.is-added {
+  background: #2e6b4f;
+  box-shadow: 0 2px 8px rgba(46, 107, 79, .3);
+}
+
+.reco-openers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  margin-bottom: 14px;
+  animation: reco-followup-in .35s ease both;
+}
+
+.reco-app .reco-openers .reco-chip {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  padding: 7px 12px;
+  border: 1px solid var(--reco-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--reco-ink);
+  cursor: pointer;
+  transition: all .16s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+}
+
+.reco-app .reco-openers .reco-chip:hover {
+  border-color: var(--reco-deep);
+  background: var(--reco-deep-soft);
+  color: var(--reco-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(35, 87, 74, .12);
+}
+
+/* ---------- follow-up questions (interactive form / stepper chips) ---------- */
+
+.reco-followup-card {
+  margin: 8px 0 14px;
+  padding: 12px 14px;
+  background: var(--reco-paper);
+  border: 1px solid var(--reco-line);
+  border-radius: 12px;
+  animation: reco-followup-in .3s cubic-bezier(.16, 1, .3, 1) both;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .03);
+}
+
+@keyframes reco-followup-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reco-followup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--reco-line);
+}
+
+.reco-followup-title {
+  font-family: var(--reco-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--reco-deep);
+}
+
+.reco-followup-counter {
+  font-family: var(--reco-mono);
+  font-size: 0.72rem;
+  color: var(--reco-muted);
+}
+
+.reco-followup-group {
+  margin-bottom: 12px;
+}
+.reco-followup-group:last-child { margin-bottom: 0; }
+
+.reco-followup-label {
+  display: flex;
+  align-items: center;
+  font-family: var(--reco-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--reco-ink);
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.reco-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--reco-deep-soft);
+  color: var(--reco-deep);
+  font-family: var(--reco-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-right: 8px;
+  flex: none;
+}
+
+.reco-followup-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reco-app .reco-followup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  padding: 7px 12px;
+  border: 1px solid var(--reco-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--reco-ink);
+  cursor: pointer;
+  transition: all .16s ease;
+}
+
+.reco-app .reco-followup-chip:hover {
+  border-color: var(--reco-deep);
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(35, 87, 74, .1);
+  transform: translateY(-1px);
+}
+
+.reco-app .reco-followup-chip:focus-visible {
+  outline: 2px solid var(--reco-deep);
+  outline-offset: 1px;
+}
+
+/* radio dot indicator */
+.reco-followup-radio {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--reco-line);
+  flex: none;
+  transition: all .15s ease;
+}
+
+.reco-app .reco-followup-chip:hover .reco-followup-radio {
+  border-color: var(--reco-deep);
+}
+
+/* selected state */
+.reco-app .reco-followup-chip.is-selected {
+  border-color: var(--reco-deep);
+  background: var(--reco-deep);
+  color: #fff;
+}
+
+.reco-app .reco-followup-chip.is-selected .reco-followup-radio {
+  border-color: #fff;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--reco-deep);
+}
+
+/* disabled (after submission) */
+.reco-app .reco-followup-chip:disabled {
+  cursor: default;
+  opacity: .5;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.reco-app .reco-followup-chip.is-selected:disabled {
+  opacity: .95;
+}
+
+.reco-followup-card.is-answered {
+  opacity: .75;
+  pointer-events: none;
+}
+
+/* footer & submit button */
+.reco-followup-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--reco-line);
+}
+
+.reco-app .reco-followup-submit {
+  width: 100%;
+  padding: 9px 16px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  background: #e2e8e4;
+  color: var(--reco-muted);
+  cursor: not-allowed;
+  transition: all .18s ease;
+}
+
+.reco-app .reco-followup-submit.is-ready {
+  background: var(--reco-deep);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(35, 87, 74, .25);
+}
+
+.reco-app .reco-followup-submit.is-ready:hover {
+  background: #1a443a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(35, 87, 74, .3);
+}
+
+/* panel-specific sizing */
+.reco-panel-body .reco-followup-card {
+  padding: 10px 12px;
+}
+.reco-panel-body .reco-followup-label {
+  font-size: 0.78rem;
+}
+.reco-panel-body .reco-followup-chip {
+  font-size: 0.78rem;
+  padding: 6px 10px;
+}
+.reco-panel-body .reco-followup-submit {
+  font-size: 0.8rem;
+  padding: 8px 12px;
+}
+
+.reco-composer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.reco-app .reco-composer input {
+  flex: 1;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 12px 14px;
+  border: 1px solid var(--reco-line);
+  border-radius: var(--reco-r);
+  background: #fff;
+  color: var(--reco-ink);
+}
+.reco-app .reco-composer button {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: var(--reco-r);
+  background: var(--reco-deep);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity .14s ease;
+}
+.reco-app .reco-composer button:hover { opacity: .88; }
+.reco-app .reco-composer button[disabled] { opacity: .5; cursor: default; }
+
+@media (max-width: 560px) {
+  .reco-bubble { max-width: 92%; }
+  .reco-thread { padding: 14px; max-height: 58vh; }
+  .reco-app .reco-composer button { padding: 12px 16px; }
+}
+
+/* ==========================================================================
+   Floating adviser
+
+   The shortcode version puts the conversation on a page of its own, which is
+   the wrong place for it: advice is wanted while the customer is looking at
+   products, not after navigating away. The launcher below sits on every page
+   and opens a panel over the current one.
+
+   On phones the panel takes the full screen — a 380 px panel on a 360 px
+   device is not a panel, it is a bad full screen.
+   ========================================================================== */
+
+.reco-float {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 99999;
+  font-size: 16px;
+}
+
+/* ---------- launcher ---------- */
+
+.reco-app .reco-launcher {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 13px 20px;
+  border: 0;
+  border-radius: 100px;
+  background: var(--reco-deep);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(23, 37, 31, .22);
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.reco-app .reco-launcher:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 26px rgba(23, 37, 31, .28);
+}
+.reco-app .reco-launcher svg { flex: none; }
+
+/* a conversation left open on another page deserves a mark, not a badge
+   count — there is nothing to count, only something to come back to */
+.reco-app .reco-launcher.has-thread::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  right: 11px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--reco-signal);
+  border: 2px solid #fff;
+}
+.reco-app .reco-launcher { position: relative; }
+
+.reco-app.reco-float.is-open .reco-launcher,
+.reco-float.is-open .reco-app .reco-launcher,
+.reco-float.is-open > .reco-launcher {
+  display: none !important;
+}
+
+/* ---------- panel ---------- */
+
+.reco-panel {
+  position: relative;
+  z-index: 2;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  height: 560px;
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--reco-line);
+  border-radius: 10px;
+  background: var(--reco-paper);
+  box-shadow: 0 16px 48px rgba(23, 37, 31, .26);
+  overflow: hidden;
+}
+
+.reco-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--reco-deep);
+  color: #fff;
+  flex: none;
+}
+.reco-panel-head strong {
+  display: block;
+  font-family: var(--reco-display);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+.reco-panel-head span {
+  display: block;
+  font-size: 0.74rem;
+  opacity: .8;
+  margin-top: 1px;
+}
+.reco-panel-actions { display: flex; align-items: center; gap: 2px; }
+
+.reco-app .reco-panel-reset,
+.reco-app .reco-panel-close {
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  opacity: .85;
+}
+.reco-app .reco-panel-reset:hover,
+.reco-app .reco-panel-close:hover { opacity: 1; background: rgba(255,255,255,.12); }
+
+.reco-app .reco-panel-reset { font-size: 1.15rem; }
+
+.reco-panel-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px;
+}
+
+/* inside the panel the thread fills the space rather than capping at 62vh */
+.reco-panel-body .reco-thread {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  border: 0;
+  background: transparent;
+  padding: 4px 2px;
+}
+.reco-panel-body .reco-composer { margin-top: 10px; flex: none; }
+.reco-panel-body .reco-bubble { max-width: 92%; font-size: 0.9rem; }
+.reco-panel-body .reco-card { padding: 11px 12px; }
+.reco-panel-body .reco-card img { width: 46px; height: 46px; }
+.reco-panel-body .reco-card h4 { font-size: 0.92rem; }
+.reco-panel-body .reco-chip { font-size: 0.8rem; padding: 6px 11px; }
+.reco-app .reco-panel-body .reco-composer button { padding: 11px 16px; }
+
+/* ---------- phones ---------- */
+
+@media (max-width: 560px) {
+  .reco-float { right: 14px; bottom: 14px; }
+  .reco-app .reco-launcher { padding: 12px 16px; }
+  .reco-launcher-label { display: none; }
+
+  .reco-float.is-open {
+    inset: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .reco-panel {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+/* stop the page scrolling behind the panel on phones */
+@media (max-width: 560px) {
+  body.reco-chat-open { overflow: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reco-app .reco-launcher { transition: none; }
+}

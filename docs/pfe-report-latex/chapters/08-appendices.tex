@@ -1,0 +1,173 @@
+%------------------------------------------------------------------ appendices
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Appendices}
+\markboth{Appendices}{}
+\chapter*{Appendices}
+
+\section*{Appendix 1 --- Controlled vocabularies}
+
+\textbf{Customer concerns} (25 values).
+\emph{Skin:} taches\_pigmentaires, rides\_age, deshydratation,
+imperfections\_acne, rougeurs\_sensibilite, exces\_sebum, eclat\_teint,
+protection\_solaire, cernes\_poches, pores\_dilates, hygiene.
+\emph{Hair:} chute\_cheveux, pellicules, cheveux\_abimes.
+\emph{Internal:} digestion, immunite, sommeil\_stress, energie\_tonus,
+articulations, memoire\_concentration, glycemie\_tension, fertilite,
+sport\_nutrition, minceur\_detox, cheveux\_peau\_ongles.
+Plus \texttt{aucun} for products making no health or beauty claim.
+
+\medskip
+\textbf{Skin types.} normale, seche, mixte, grasse, sensible, acneique, mature,
+tous.
+
+\medskip
+\textbf{Hair types.} secs, gras, normaux, abimes, colores, boucles\_frises,
+pellicules, chute, tous.
+
+\medskip
+\textbf{Application zones.} visage, yeux, levres, mains, pieds, bouche, cheveux,
+corps, oral, maison, polyvalent.
+
+\medskip
+\textbf{Routine steps.} nettoyage, tonification, traitement, hydratation,
+protection, soin\_cible, complement\_oral, non\_applicable.
+
+\section*{Appendix 2 --- Example of an extracted product record}
+
+\begin{lstlisting}[language=,caption={},label={}]
+{
+  "id": 1330,
+  "name": "Ecran solaire peau sensible SPF 50 Algovita",
+  "brand": "Algo Vita",
+  "price": "89",
+  "stock_status": "instock",
+
+  "product_format": "solaire",
+  "zone": "visage",
+  "skin_type": ["sensible"],
+  "hair_type": [],
+  "concerns": ["protection_solaire", "rougeurs_sensibilite"],
+  "usage_time": ["matin"],
+  "routine_step": "protection",
+  "key_ingredients": ["dioxyde de titane"],
+  "volume_size": "50 ml",
+  "is_pack": false,
+  "confidence": 0.95,
+  "extraction_method": "rules_v2"
+}
+\end{lstlisting}
+
+\section*{Appendix 3 --- API contract}
+
+Request to \texttt{POST /recommend}:
+
+\begin{lstlisting}[language=]
+{
+  "domain": "visage",
+  "concerns": ["taches_pigmentaires"],
+  "skin_type": "sensible",
+  "usage_time": "soir",
+  "budget_max": 120,
+  "in_stock_only": true
+}
+\end{lstlisting}
+
+Extract from the response:
+
+\begin{lstlisting}[language=]
+{
+  "profile": { "matched_products": 19 },
+  "routine": [
+    { "step": "nettoyage", "position": 1,
+      "product": { "id": 1204, "name": "...", "price": "24",
+                   "in_stock": true, "url": "https://..." },
+      "reason": "cible en priorite",
+      "match": { "concern": "primary", "skin_type": "explicit" } }
+  ],
+  "packs": [ ... ],
+  "alternatives": [ ... ],
+  "meta": { "engine": "rules_v2", "live_pricing": true }
+}
+\end{lstlisting}
+
+\section*{Appendix 4 --- Validation profiles}
+
+Twenty-two profiles were defined. Extract:
+
+\begin{table}[H]
+\caption{Extract from the validation profiles}
+\label{tab:profiles}
+\centering
+\begin{tabularx}{\textwidth}{l L{4.6cm} X}
+\toprule
+\textbf{Ref.} & \textbf{Profile} & \textbf{Criteria} \\
+\midrule
+V01 & Post-pregnancy pigmentation, sensitive skin & visage, taches\_pigmentaires, sensible \\
+V03 & Adult acne, oily skin & visage, imperfections\_acne, grasse \\
+V04 & Oily skin, limited budget & visage, exces\_sebum, grasse, 60 DT \\
+V11 & Normal skin (thin segment) & visage, deshydratation, normale \\
+C02 & Dandruff, oily scalp & cheveux, pellicules, gras \\
+I03 & Difficult digestion & interieur, digestion \\
+I04 & Sleep and stress & interieur, sommeil\_stress \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section*{Appendix 5 --- Deployment configuration}
+
+Environment variables required by the service:
+
+\begin{lstlisting}[language=]
+CLIENT_NAME=letsbebio
+
+DB_HOST=127.0.0.1
+DB_USER=reco_read          # SELECT privilege only
+DB_PASSWORD=...
+DB_NAME=wordpress
+WP_PREFIX=wp_11e347_       # specific to each installation
+
+SITE_URL=https://example.tn
+CORS_ORIGINS=https://example.tn
+
+REBUILD_MINUTES=60
+LIVE_STOCK=true
+ADMIN_TOKEN=...
+RATE_LIMIT_PER_MIN=60
+
+ENABLE_INTERPRET=true
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=...
+LLM_MODEL=llama-3.3-70b-versatile
+\end{lstlisting}
+
+Creation of the read-only database user:
+
+\begin{lstlisting}[language=]
+CREATE USER 'reco_read'@'%' IDENTIFIED BY '...';
+GRANT SELECT ON wordpress.* TO 'reco_read'@'%';
+FLUSH PRIVILEGES;
+\end{lstlisting}
+
+\section*{Appendix 6 --- Deliverables}
+
+\begin{table}[H]
+\caption{Project deliverables}
+\label{tab:deliverables}
+\centering
+\begin{tabularx}{\textwidth}{L{5.4cm} X}
+\toprule
+\textbf{Component} & \textbf{Content} \\
+\midrule
+\texttt{service/} & API service: extraction, scoring, agent, Docker configuration, deployment guide \\
+\texttt{reco-engine/} & WordPress plugin: settings page, proxy, two shortcodes \\
+\texttt{validate.py} & Validation harness and regression test \\
+\texttt{validation\_sheet.pdf} & Expert review document, 22 profiles \\
+\texttt{data\_model.md} & Product data model specification \\
+\texttt{architecture.md} & Deployment architecture \\
+\texttt{product\_data\_audit.md} & Catalogue audit report \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\cleardoublepage

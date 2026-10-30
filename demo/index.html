@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moteur de recommandation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EDF1EA; --paper:#FBFCFA; --ink:#14231C; --muted:#5C7167;
+    --line:#CFD9CD; --leaf:#2E6B4F; --leaf-dim:#E2EDE5;
+    --rose:#A63D57; --rose-dim:#F6E7EB; --gold:#A87B22; --radius:3px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Karla",system-ui,sans-serif;font-size:15px;line-height:1.55;
+    -webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;
+    margin:0;letter-spacing:-.02em;line-height:1.05}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
+  header.top{border-bottom:1px solid var(--line);padding:26px 0 20px;margin-bottom:30px;
+    display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  header.top h1{font-size:26px}
+  .status{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted)}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--leaf);margin-right:6px;vertical-align:middle}
+  .dot.bad{background:var(--rose)}
+
+  .layout{display:grid;grid-template-columns:334px 1fr;gap:44px;align-items:start}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;gap:30px}}
+  .panel{position:sticky;top:24px}
+  @media(max-width:900px){.panel{position:static}}
+
+  .field{margin-bottom:24px}
+  .field > .eyebrow{display:block;margin-bottom:9px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font:inherit;font-size:13px;padding:6px 11px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);border-radius:var(--radius);cursor:pointer;
+    transition:background .12s,border-color .12s,color .12s}
+  .chip:hover{border-color:var(--leaf)}
+  .chip[aria-pressed="true"]{background:var(--leaf);border-color:var(--leaf);color:#fff}
+  .chip.rose[aria-pressed="true"]{background:var(--rose);border-color:var(--rose)}
+  .chip:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+  button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .row{display:flex;align-items:center;gap:9px;margin-top:8px;font-size:13.5px;color:var(--muted)}
+  input[type=range]{flex:1;accent-color:var(--leaf)}
+  input[type=checkbox]{accent-color:var(--leaf);width:15px;height:15px}
+  select,textarea{font:inherit;font-size:13.5px;padding:7px 8px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);border-radius:var(--radius);width:100%}
+  textarea{resize:vertical;min-height:64px}
+  .count{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted)}
+  .btn{font:inherit;font-size:13.5px;font-weight:500;background:var(--leaf);color:#fff;
+    border:0;padding:8px 14px;border-radius:var(--radius);cursor:pointer;margin-top:8px}
+  .btn[disabled]{opacity:.5;cursor:default}
+
+  .verdict{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--leaf);
+    padding:16px 18px;margin-bottom:30px}
+  .verdict p{margin:6px 0 0;font-size:14px;color:var(--muted)}
+  .verdict strong{color:var(--ink);font-weight:700}
+  .sect{margin-bottom:44px}
+  .sect > h2{font-size:19px;margin-bottom:4px}
+  .sect > .lede{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+
+  .ribbon{position:relative;padding-left:38px}
+  .ribbon::before{content:"";position:absolute;left:11px;top:6px;bottom:26px;
+    width:1px;background:var(--line)}
+  .step{position:relative;margin-bottom:14px}
+  .step::before{content:attr(data-n);position:absolute;left:-38px;top:2px;
+    width:23px;height:23px;border-radius:50%;background:var(--leaf);color:#fff;
+    font-family:"IBM Plex Mono",monospace;font-size:11px;
+    display:flex;align-items:center;justify-content:center}
+  .step-label{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--leaf);margin-bottom:5px}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+    padding:13px 15px;display:flex;gap:13px;align-items:flex-start}
+  .card img{width:56px;height:56px;object-fit:cover;border-radius:2px;flex:none;
+    background:var(--leaf-dim)}
+  .card .body{flex:1;min-width:0}
+  .card h3{font-size:15.5px;font-weight:600;line-height:1.25}
+  .card .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;align-items:center}
+  .card .why{font-size:13px;color:var(--muted);margin:7px 0 0}
+  .tag{font-family:"IBM Plex Mono",monospace;font-size:10px;padding:2px 6px;border-radius:2px;
+    background:var(--leaf-dim);color:var(--leaf)}
+  .tag.rose{background:var(--rose-dim);color:var(--rose)}
+  .tag.plain{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .price{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;margin-left:auto}
+  .oos{color:var(--rose)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+  .pack{border-left:3px solid var(--rose);display:block}
+  .pack ul{margin:8px 0 0;padding-left:17px;font-size:13px;color:var(--muted)}
+  .empty{border:1px dashed var(--line);padding:26px;text-align:center;color:var(--muted);font-size:14px}
+  .err{color:var(--rose);font-size:13.5px;margin-top:10px}
+  a.plain{color:inherit;text-decoration:none}
+  a.plain:hover h3{text-decoration:underline}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Prototype connecté à l'API</div>
+      <h1 style="margin-top:6px">Moteur de recommandation</h1>
+    </div>
+    <div class="status" id="status">connexion…</div>
+  </header>
+
+  <div class="layout">
+    <form class="panel" onsubmit="return false">
+      <div class="field">
+        <span class="eyebrow">1 — Domaine</span>
+        <div class="chips" id="q-domain"></div>
+      </div>
+      <div class="field">
+        <span class="eyebrow">2 — Préoccupation</span>
+        <div class="chips" id="q-concern"></div>
+      </div>
+      <div class="field" id="wrap-type">
+        <span class="eyebrow" id="lbl-type">3 — Type de peau</span>
+        <div class="chips" id="q-type"></div>
+      </div>
+      <div class="field">
+        <span class="eyebrow">Moment</span>
+        <div class="chips" id="q-time"></div>
+      </div>
+      <div class="field">
+        <span class="eyebrow">Budget maximum</span>
+        <div class="row">
+          <input type="range" id="q-budget" min="10" max="400" step="10" value="400">
+          <span class="count" id="budget-val">illimité</span>
+        </div>
+      </div>
+      <div class="field">
+        <span class="eyebrow">Marque</span>
+        <select id="q-brand"><option value="">Toutes les marques</option></select>
+      </div>
+      <div class="field">
+        <label class="row" style="cursor:pointer">
+          <input type="checkbox" id="q-stock" checked><span>Uniquement en stock</span>
+        </label>
+      </div>
+      <div class="field" id="wrap-free" hidden>
+        <span class="eyebrow">Décrire en une phrase</span>
+        <textarea id="q-free" placeholder="ex : j'ai des taches et la peau sensible, budget 100 dinars"></textarea>
+        <button class="btn" id="btn-free" type="button">Interpréter</button>
+        <div class="err" id="free-err"></div>
+      </div>
+    </form>
+
+    <main id="out"><div class="empty">Chargement…</div></main>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* Same origin by default. Change only if the API lives elsewhere. */
+const API = (location.port === "8000")
+  ? ""                                   // served by the API itself
+  : "http://127.0.0.1:8000";             // opened as a file / other port
+
+const L_CONCERN = {
+  taches_pigmentaires:"Taches & hyperpigmentation", rides_age:"Rides & fermeté",
+  deshydratation:"Hydratation & nutrition", imperfections_acne:"Imperfections & acné",
+  rougeurs_sensibilite:"Rougeurs & sensibilité", exces_sebum:"Excès de sébum",
+  eclat_teint:"Éclat du teint", protection_solaire:"Protection solaire",
+  cernes_poches:"Cernes & poches", pores_dilates:"Pores dilatés",
+  chute_cheveux:"Chute de cheveux", pellicules:"Pellicules",
+  cheveux_abimes:"Cheveux abîmés", minceur_detox:"Minceur & détox",
+  digestion:"Digestion & transit", immunite:"Immunité", sommeil_stress:"Sommeil & stress",
+  energie_tonus:"Énergie & tonus", articulations:"Articulations",
+  memoire_concentration:"Mémoire & concentration", glycemie_tension:"Glycémie & tension",
+  fertilite:"Fertilité & libido", sport_nutrition:"Sport & nutrition",
+  cheveux_peau_ongles:"Cheveux, peau & ongles", hygiene:"Hygiène"
+};
+const L_SKIN = {normale:"Normale", seche:"Sèche", mixte:"Mixte", grasse:"Grasse",
+  sensible:"Sensible", acneique:"À tendance acnéique", mature:"Mature"};
+const L_HAIR = {secs:"Secs", gras:"Gras", normaux:"Normaux", abimes:"Abîmés",
+  colores:"Colorés", boucles_frises:"Bouclés / frisés", pellicules:"Pellicules", chute:"Chute"};
+const L_STEP = {nettoyage:"Nettoyer", tonification:"Tonifier", traitement:"Traiter",
+  hydratation:"Hydrater", protection:"Protéger", soin_cible:"Soin ciblé"};
+const L_FMT = {nettoyant:"Nettoyant", demaquillant:"Démaquillant", lotion_tonique:"Lotion",
+  serum:"Sérum", creme_hydratante:"Crème", masque:"Masque", gommage:"Gommage",
+  contour_yeux:"Contour des yeux", solaire:"Solaire", huile_visage:"Huile visage",
+  savon:"Savon", argile:"Argile", hydrolat:"Hydrolat", shampooing:"Shampooing",
+  apres_shampooing:"Après-shampooing", huile_capillaire:"Huile capillaire",
+  coloration_vegetale:"Coloration", lait_corps:"Lait corps", deodorant:"Déodorant",
+  bain:"Bain & douche", dentifrice:"Dentifrice", huile_vegetale:"Huile végétale",
+  huile_essentielle:"Huile essentielle", complement_gelules:"Gélules",
+  complement_poudre:"Poudre", tisane:"Tisane"};
+const L_ZONE = {yeux:"Yeux", levres:"Lèvres", mains:"Mains", pieds:"Pieds",
+  bouche:"Bouche", corps:"Corps", cheveux:"Cheveux"};
+const DOMAIN_LABEL = {visage:"Visage", cheveux:"Cheveux", corps:"Corps", interieur:"Bien-être"};
+
+const S = {domain:"visage", concern:null, type:null, time:null,
+           budget:400, brand:"", stock:true};
+let OPTS = null, busy = false;
+
+const esc = s => String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const money = p => { const n=parseFloat(p); return isFinite(n)? n.toFixed(3).replace(/\.?0+$/,"")+" DT" : "—"; };
+
+async function api(path, opts){
+  const r = await fetch(API + path, opts);
+  if(!r.ok){
+    let msg = r.status + "";
+    try{ const j = await r.json(); msg = j.detail || msg; }catch{}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+/* ---------- health ---------- */
+async function health(){
+  const el = document.getElementById("status");
+  try{
+    const h = await api("/health");
+    el.innerHTML = `<span class="dot"></span>${h.products} produits · ${h.packs} packs`
+      + (h.live_stock ? " · prix en direct" : "");
+    if(h.last_error) el.innerHTML += ` · <span class="oos">erreur de rafraîchissement</span>`;
+    return true;
+  }catch(e){
+    el.innerHTML = `<span class="dot bad"></span>API injoignable (${esc(e.message)})`;
+    document.getElementById("out").innerHTML =
+      `<div class="empty">L'API ne répond pas.<br><br>
+       Lancez le service :<br>
+       <code class="mono">uvicorn app.main:app --port 8000</code></div>`;
+    return false;
+  }
+}
+
+/* ---------- form ---------- */
+function chip(text, active, cls){
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip" + (cls?" "+cls:"");
+  b.textContent = text; b.setAttribute("aria-pressed", active?"true":"false");
+  return b;
+}
+
+async function loadOptions(){
+  OPTS = await api("/options?domain=" + S.domain);
+  if(!S.concern || !OPTS.concerns.some(c=>c.value===S.concern))
+    S.concern = OPTS.concerns.length ? OPTS.concerns[0].value : null;
+  if(S.type && !OPTS.types.some(t=>t.value===S.type)) S.type = null;
+  buildForm();
+}
+
+function buildForm(){
+  const d = document.getElementById("q-domain"); d.innerHTML = "";
+  for(const k in DOMAIN_LABEL){
+    const b = chip(DOMAIN_LABEL[k], S.domain===k);
+    b.onclick = async ()=>{ S.domain=k; S.concern=null; S.type=null;
+      await loadOptions(); run(); };
+    d.appendChild(b);
+  }
+
+  const c = document.getElementById("q-concern"); c.innerHTML = "";
+  for(const o of (OPTS?.concerns||[])){
+    const b = chip(L_CONCERN[o.value]||o.value, S.concern===o.value, "rose");
+    b.title = o.count + " produits";
+    b.onclick = ()=>{ S.concern=o.value; buildForm(); run(); };
+    c.appendChild(b);
+  }
+  if(!OPTS?.concerns?.length) c.innerHTML = '<span class="count">Aucune donnée.</span>';
+
+  const wrapT = document.getElementById("wrap-type");
+  if(!OPTS?.type_kind){ wrapT.hidden = true; }
+  else{
+    wrapT.hidden = false;
+    document.getElementById("lbl-type").textContent =
+      OPTS.type_kind === "hair" ? "3 — Type de cheveux" : "3 — Type de peau";
+    const lab = OPTS.type_kind === "hair" ? L_HAIR : L_SKIN;
+    const t = document.getElementById("q-type"); t.innerHTML = "";
+    const any = chip("Indifférent", S.type===null);
+    any.onclick = ()=>{ S.type=null; buildForm(); run(); };
+    t.appendChild(any);
+    for(const o of OPTS.types){
+      const b = chip(lab[o.value]||o.value, S.type===o.value);
+      b.title = o.count + " produits";
+      b.onclick = ()=>{ S.type=o.value; buildForm(); run(); };
+      t.appendChild(b);
+    }
+  }
+
+  const tm = document.getElementById("q-time"); tm.innerHTML = "";
+  [[null,"Indifférent"],["matin","Matin"],["soir","Soir"]].forEach(([v,l])=>{
+    const b = chip(l, S.time===v);
+    b.onclick = ()=>{ S.time=v; buildForm(); run(); };
+    tm.appendChild(b);
+  });
+
+  const sel = document.getElementById("q-brand");
+  if(sel.options.length < 2 && OPTS?.brands?.length){
+    for(const o of OPTS.brands){
+      const opt = document.createElement("option");
+      opt.value = o.value; opt.textContent = `${o.value} (${o.count})`;
+      sel.appendChild(opt);
+    }
+    sel.onchange = ()=>{ S.brand = sel.value; run(); };
+  }
+
+  const bud = document.getElementById("q-budget");
+  bud.oninput = ()=>{ S.budget = +bud.value;
+    document.getElementById("budget-val").textContent =
+      S.budget>=400 ? "illimité" : S.budget+" DT"; };
+  bud.onchange = run;
+  document.getElementById("q-stock").onchange = e=>{ S.stock = e.target.checked; run(); };
+}
+
+/* ---------- render ---------- */
+function cardHTML(item, wrapLink){
+  const p = item.product || item;
+  const tags = [];
+  if(p.format) tags.push(`<span class="tag">${esc(L_FMT[p.format]||p.format)}</span>`);
+  (p.skin_type||[]).slice(0,2).forEach(t=>tags.push(`<span class="tag rose">${esc(L_SKIN[t]||t)}</span>`));
+  (p.hair_type||[]).slice(0,2).forEach(t=>tags.push(`<span class="tag rose">${esc(L_HAIR[t]||t)}</span>`));
+  if(L_ZONE[p.zone]) tags.push(`<span class="tag plain">${esc(L_ZONE[p.zone])}</span>`);
+  if(p.volume_size) tags.push(`<span class="tag plain">${esc(p.volume_size)}</span>`);
+  if(p.in_stock === false) tags.push(`<span class="tag plain oos">rupture</span>`);
+
+  const inner = `
+    ${p.image_url?`<img src="${esc(p.image_url)}" alt="" loading="lazy"
+        onerror="this.remove()">`:""}
+    <div class="body">
+      <h3>${esc(p.name)}</h3>
+      ${p.brand?`<div class="count" style="margin-top:3px">${esc(p.brand)}</div>`:""}
+      <div class="meta">${tags.join("")}<span class="price">${money(p.price)}</span></div>
+      ${item.reason?`<p class="why">${esc(item.reason)} ${esc(L_CONCERN[S.concern]||"")}</p>`:""}
+    </div>`;
+  return (wrapLink && p.url)
+    ? `<a class="plain" href="${esc(p.url)}" target="_blank" rel="noopener">
+         <article class="card">${inner}</article></a>`
+    : `<article class="card">${inner}</article>`;
+}
+
+async function run(){
+  if(busy || !S.concern) return;
+  busy = true;
+  const out = document.getElementById("out");
+  try{
+    const data = await api("/recommend", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({
+        domain:S.domain, concerns:[S.concern], skin_type:S.type,
+        usage_time:S.time, budget_max: S.budget>=400 ? null : S.budget,
+        brand: S.brand || null, in_stock_only:S.stock
+      })
+    });
+
+    let h = `<div class="verdict">
+      <div class="eyebrow">Profil retenu</div>
+      <p><strong>${esc(DOMAIN_LABEL[S.domain])}</strong> ·
+      <strong>${esc(L_CONCERN[S.concern]||S.concern)}</strong>
+      ${S.type?` · type <strong>${esc(L_SKIN[S.type]||L_HAIR[S.type]||S.type)}</strong>`:""}
+      — <span class="mono">${data.profile.matched_products}</span> produits correspondants.</p>
+    </div>`;
+
+    h += `<section class="sect"><h2>La routine suggérée</h2>
+      <p class="lede">Un produit par étape, dans l'ordre d'application.</p>`;
+    if(data.routine.length){
+      h += `<div class="ribbon">`;
+      data.routine.forEach(r=>{
+        h += `<div class="step" data-n="${r.position}">
+          <div class="step-label">${esc(L_STEP[r.step]||r.step)}</div>
+          ${cardHTML(r, true)}</div>`;
+      });
+      h += `</div>`;
+    } else {
+      h += `<div class="empty">Pas assez de produits pour ce profil.</div>`;
+    }
+    h += `</section>`;
+
+    if(data.packs.length){
+      h += `<section class="sect"><h2>Packs de la marque</h2>
+        <p class="lede">Routines déjà composées par la boutique.</p><div class="grid">`;
+      for(const p of data.packs){
+        const items = (p.components||[]).map(c=>`<li>${esc(c.name)}</li>`).join("");
+        h += `<article class="card pack">
+          <h3>${esc(p.name)}</h3>
+          ${p.brand?`<div class="count" style="margin-top:3px">${esc(p.brand)}</div>`:""}
+          <div class="meta"><span class="price">${money(p.price)}</span></div>
+          ${items?`<ul>${items}</ul>`
+                 :`<p class="why">Composition non renseignée.</p>`}
+        </article>`;
+      }
+      h += `</div></section>`;
+    }
+
+    if(data.alternatives.length){
+      h += `<section class="sect"><h2>Autres produits pertinents</h2>
+        <p class="lede">Classés par pertinence.</p>
+        <div class="grid">${data.alternatives.map(a=>cardHTML(a,true)).join("")}</div>
+      </section>`;
+    }
+    out.innerHTML = h;
+  }catch(e){
+    out.innerHTML = `<div class="empty">Erreur : ${esc(e.message)}</div>`;
+  }finally{ busy = false; }
+}
+
+/* ---------- free text (only if /interpret is enabled) ---------- */
+document.getElementById("btn-free").onclick = async ()=>{
+  const err = document.getElementById("free-err");
+  const txt = document.getElementById("q-free").value.trim();
+  err.textContent = "";
+  if(txt.length < 3) return;
+  try{
+    const p = await api("/interpret", {method:"POST",
+      headers:{"content-type":"application/json"}, body:JSON.stringify({text:txt})});
+    S.domain = p.domain || S.domain;
+    await loadOptions();
+    if(p.concerns?.length) S.concern = p.concerns[0];
+    S.type = p.skin_type || null;
+    S.time = p.usage_time || null;
+    if(p.budget_max){ S.budget = Math.min(400, p.budget_max);
+      document.getElementById("q-budget").value = S.budget;
+      document.getElementById("budget-val").textContent = S.budget + " DT"; }
+    buildForm(); run();
+  }catch(e){ err.textContent = "Interprétation indisponible."; }
+};
+
+/* ---------- boot ---------- */
+(async ()=>{
+  if(!await health()) return;
+  try{
+    await api("/interpret", {method:"POST", headers:{"content-type":"application/json"},
+      body:JSON.stringify({text:"test"})});
+    document.getElementById("wrap-free").hidden = false;
+  }catch(e){ /* endpoint disabled — hide the free-text box */ }
+  await loadOptions();
+  run();
+})();
+</script>
+</body>
+</html>

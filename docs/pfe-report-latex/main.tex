@@ -1,0 +1,214 @@
+%==============================================================================
+%  Final Project Report — EPI Educational Group
+%  Compliant with the "Final Project Report Preparation Guide"
+%
+%  Compile with:  latexmk -pdf main.tex
+%             or: pdflatex main.tex  (three times, for TOC and references)
+%==============================================================================
+
+\documentclass[12pt,a4paper,oneside]{report}
+
+%------------------------------------------------------------------ encoding --
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+
+%---------------------------------------------------------------- typography --
+% Times New Roman equivalent, as required by the guide (section III).
+% mathptmx is available in every standard TeX distribution. If your system has
+% the newtx package installed, you may replace the line below with
+%     \usepackage{newtxtext,newtxmath}
+% which gives slightly better mathematical typesetting.
+\usepackage{amsmath}
+\usepackage{mathptmx}
+\usepackage{setspace}
+\onehalfspacing                      % line spacing 1.5
+\usepackage[none]{hyphenat}          % no automatic hyphenation
+\sloppy                              % keeps lines inside the margin without it
+\clubpenalty=10000                   % no widows
+\widowpenalty=10000
+\displaywidowpenalty=10000
+
+%-------------------------------------------------------------------- layout --
+\usepackage[
+  a4paper,
+  top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm,
+  headsep=1.0cm, footskip=1.0cm,
+  headheight=15pt
+]{geometry}
+
+%------------------------------------------------------------------ graphics --
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\definecolor{epired}{RGB}{192,0,0}
+\definecolor{epipurple}{RGB}{91,75,138}
+\definecolor{rule}{RGB}{120,120,120}
+
+%------------------------------------------------ figure placeholder macro --
+% If graphic file exists in figures/, include it; otherwise render an elegant placeholder box.
+% Ensures compilation never crashes on missing images and registers in \listoffigures.
+\newcommand{\placeholderscreenshot}[4][0.9\textwidth]{%
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{figures/#2}{%
+      \includegraphics[width=#1]{figures/#2}%
+    }{%
+      \setlength{\fboxsep}{10pt}%
+      \fbox{%
+        \begin{minipage}[c][4.6cm][c]{#1}
+          \centering
+          {\color{epired}\large\bfseries [ SCREENSHOT / FIGURE PLACEHOLDER ]}\\[7pt]
+          {\small\bfseries #3}\\[6pt]
+          {\footnotesize\color{rule}\texttt{Target file: figures/#2}}\\[4pt]
+          {\scriptsize\itshape\color{rule}(Drop your screenshot or diagram into the \texttt{figures/} folder)}
+        \end{minipage}%
+      }%
+    }%
+    \caption{#3}
+    \label{#4}
+  \end{figure}
+}
+
+%-------------------------------------------------------------------- tables --
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\renewcommand{\arraystretch}{1.25}
+
+%---------------------------------------------------------------- code, misc --
+\usepackage{listings}
+\usepackage{enumitem}
+\setlist{itemsep=2pt, topsep=4pt}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font={small}, labelfont=bf, justification=centering}
+\captionsetup[table]{position=above}
+\captionsetup[figure]{position=below}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{rule},
+  numbers=none,
+  showstringspaces=false,
+  captionpos=b,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+}
+
+%-------------------------------------------------------- headers and footers --
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\fontsize{10}{12}\selectfont\nouppercase{\leftmark}}
+\fancyfoot[C]{\fontsize{10}{12}\selectfont\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\fontsize{10}{12}\selectfont\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+%------------------------------------------------- titles: decimal, left-align --
+\usepackage{titlesec}
+
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\raggedright}
+  {\chaptertitlename\ \thechapter}{10pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{0pt}{28pt}
+
+\titleformat{\section}{\normalfont\large\bfseries\raggedright}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries\raggedright}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\itshape\raggedright}{\thesubsubsection}{0.7em}{}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+%--------------------------------------------------------- separator pages ----
+% The guide (§III) requires a separator page before each chapter.
+\newcommand{\chapterseparator}[2]{%
+  \cleardoublepage
+  \thispagestyle{empty}
+  \vspace*{\stretch{1}}
+  \begin{center}
+    {\fontsize{14}{17}\selectfont\scshape Chapter #1}\\[10pt]
+    \textcolor{rule}{\rule{0.42\textwidth}{0.4pt}}\\[14pt]
+    {\fontsize{20}{24}\selectfont\bfseries #2}
+  \end{center}
+  \vspace*{\stretch{2}}
+  \clearpage
+}
+
+%----------------------------------------------------------------- hyperlinks --
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+\usepackage{url}
+\urlstyle{same}
+
+%-------------------------------------------------------------- author macros --
+\newcommand{\authorname}{Montassar Bagan\'e}
+\newcommand{\speciality}{Artificial Intelligence and Data Science}
+\newcommand{\companyname}{WebDesign}
+\newcommand{\clientsite}{letsbebio.tn}
+\newcommand{\periodstart}{1 August 2026}
+\newcommand{\periodend}{1 September 2026}
+\newcommand{\supervisor}{Sawssen Guerbej}
+\newcommand{\companysupervisor}{Sawssen Guerbej}
+
+\begin{document}
+
+%==============================================================================
+%  PRELIMINARY PAGES  (roman numerals, no chapter headers)
+%==============================================================================
+\pagenumbering{roman}
+\pagestyle{plain}
+
+\include{chapters/00-cover}
+\include{chapters/00-dedication}
+\include{chapters/00-acknowledgments}
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Contents}
+\tableofcontents
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+
+\include{chapters/00-acronyms}
+
+%==============================================================================
+%  BODY  (arabic pagination begins at the general introduction)
+%==============================================================================
+\cleardoublepage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagestyle{fancy}
+
+\include{chapters/01-introduction}
+\include{chapters/02-context}
+\include{chapters/03-state-of-the-art}
+\include{chapters/04-framework}
+\include{chapters/05-implementation}
+\include{chapters/06-conclusion}
+
+%==============================================================================
+%  BACK MATTER
+%==============================================================================
+\include{chapters/07-bibliography}
+\include{chapters/08-appendices}
+\include{chapters/09-abstract}
+
+\end{document}

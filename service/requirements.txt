@@ -1,0 +1,25 @@
+# Lower bounds only, deliberately.
+#
+# Exact pins broke on Python 3.14: pydantic-core 2.27 shipped no wheel for it,
+# so pip tried to compile Rust and failed on a machine with no C linker.
+# Floors give reproducibility where it matters (the features actually used)
+# while letting pip pick a build that exists for the local interpreter.
+#
+# For a production deployment, pin exactly — but pin against the Python version
+# of that server. The Dockerfile uses python:3.12-slim, where these resolve
+# to well-tested releases.
+
+fastapi>=0.115
+uvicorn[standard]>=0.34
+pymysql>=1.1.1
+pydantic>=2.9
+
+# --- optional extras --------------------------------------------------------
+# Semantic search (EMBED_BACKEND=local):  make enable-semantic
+#     sentence-transformers>=3.0
+#     numpy>=1.26
+#
+# The LLM extraction script pipeline/extract_llm_optional.py:
+#     anthropic>=0.42
+#
+# The service itself needs neither: it calls language models over plain HTTP.
