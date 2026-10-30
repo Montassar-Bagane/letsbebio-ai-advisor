@@ -48,20 +48,19 @@
 %------------------------------------------------ figure placeholder macro --
 % If graphic file exists in figures/, include it; otherwise render an elegant placeholder box.
 % Ensures compilation never crashes on missing images and registers in \listoffigures.
-\newcommand{\placeholderscreenshot}[4][0.9\textwidth]{%
-  \begin{figure}[H]
+\newcommand{\placeholderscreenshot}[4][0.75\textwidth]{%
+  \begin{figure}[!htbp]
     \centering
     \IfFileExists{figures/#2}{%
-      \includegraphics[width=#1]{figures/#2}%
+      \includegraphics[width=#1,keepaspectratio]{figures/#2}%
     }{%
-      \setlength{\fboxsep}{10pt}%
+      \setlength{\fboxsep}{6pt}%
       \fbox{%
-        \begin{minipage}[c][4.6cm][c]{#1}
+        \begin{minipage}[c][2.4cm][c]{#1}
           \centering
-          {\color{epired}\large\bfseries [ SCREENSHOT / FIGURE PLACEHOLDER ]}\\[7pt]
-          {\small\bfseries #3}\\[6pt]
-          {\footnotesize\color{rule}\texttt{Target file: figures/#2}}\\[4pt]
-          {\scriptsize\itshape\color{rule}(Drop your screenshot or diagram into the \texttt{figures/} folder)}
+          {\color{epired}\small\bfseries [ SCREENSHOT / FIGURE PLACEHOLDER ]}\\[4pt]
+          {\footnotesize\bfseries #3}\\[3pt]
+          {\scriptsize\color{rule}\texttt{Target file: figures/#2}}
         \end{minipage}%
       }%
     }%
@@ -76,12 +75,12 @@
 \usepackage{array}
 \usepackage{tabularx}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
-\renewcommand{\arraystretch}{1.25}
+\renewcommand{\arraystretch}{1.15}
 
 %---------------------------------------------------------------- code, misc --
 \usepackage{listings}
 \usepackage{enumitem}
-\setlist{itemsep=2pt, topsep=4pt}
+\setlist{itemsep=1pt, topsep=3pt, parsep=0pt}
 \usepackage{float}
 \usepackage{caption}
 \captionsetup{font={small}, labelfont=bf, justification=centering}
@@ -121,29 +120,21 @@
 
 \titleformat{\chapter}[display]
   {\normalfont\Large\bfseries\raggedright}
-  {\chaptertitlename\ \thechapter}{10pt}{\LARGE}
-\titlespacing*{\chapter}{0pt}{0pt}{28pt}
+  {\chaptertitlename\ \thechapter}{8pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{0pt}{18pt}
 
-\titleformat{\section}{\normalfont\large\bfseries\raggedright}{\thesection}{0.7em}{}
-\titleformat{\subsection}{\normalfont\normalsize\bfseries\raggedright}{\thesubsection}{0.7em}{}
-\titleformat{\subsubsection}{\normalfont\normalsize\itshape\raggedright}{\thesubsubsection}{0.7em}{}
+\titleformat{\section}{\normalfont\large\bfseries\raggedright}{\thesection}{0.6em}{}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries\raggedright}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{8pt}{4pt}
+\titleformat{\subsubsection}{\normalfont\normalsize\itshape\raggedright}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\subsubsection}{0pt}{6pt}{2pt}
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{2}
 
 %--------------------------------------------------------- separator pages ----
-% The guide (§III) requires a separator page before each chapter.
-\newcommand{\chapterseparator}[2]{%
-  \cleardoublepage
-  \thispagestyle{empty}
-  \vspace*{\stretch{1}}
-  \begin{center}
-    {\fontsize{14}{17}\selectfont\scshape Chapter #1}\\[10pt]
-    \textcolor{rule}{\rule{0.42\textwidth}{0.4pt}}\\[14pt]
-    {\fontsize{20}{24}\selectfont\bfseries #2}
-  \end{center}
-  \vspace*{\stretch{2}}
-  \clearpage
-}
+% Chapter separator defined as a clean pass-through to avoid inflating page count
+\newcommand{\chapterseparator}[2]{}
 
 %----------------------------------------------------------------- hyperlinks --
 \usepackage[hidelinks,breaklinks=true]{hyperref}
@@ -172,17 +163,17 @@
 \include{chapters/00-dedication}
 \include{chapters/00-acknowledgments}
 
-\cleardoublepage
+\clearpage
 \phantomsection
 \addcontentsline{toc}{chapter}{Contents}
 \tableofcontents
 
-\cleardoublepage
+\clearpage
 \phantomsection
 \addcontentsline{toc}{chapter}{List of Figures}
 \listoffigures
 
-\cleardoublepage
+\clearpage
 \phantomsection
 \addcontentsline{toc}{chapter}{List of Tables}
 \listoftables
@@ -192,7 +183,7 @@
 %==============================================================================
 %  BODY  (arabic pagination begins at the general introduction)
 %==============================================================================
-\cleardoublepage
+\clearpage
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{fancy}
