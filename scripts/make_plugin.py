@@ -33,8 +33,9 @@ if not files:
 
 with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as z:
     for p in files:
-        # WordPress expects the plugin folder as the top level of the archive
-        z.write(p, p.relative_to(SRC.parent))
+        # WordPress expects the plugin folder as the top level of the archive,
+        # and POSIX forward slashes regardless of the OS building it.
+        z.write(p, p.relative_to(SRC.parent).as_posix())
 
 size = OUT.stat().st_size / 1024
 print(f"Created {OUT.name} ({size:.0f} KB, {len(files)} files)")

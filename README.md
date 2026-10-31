@@ -73,24 +73,23 @@ Supports **French**, **Tunisian Arabic (الدارجة)**, and **Arabizi (e.g. *
 letsbebio-reco/
 ├── service/                  # Production FastAPI backend
 │   ├── app/                  # Application modules (agent, scoring, catalogue, etc.)
-│   ├── Dockerfile            # Production container build
+│   ├── Dockerfile            # Production multi-stage container build
 │   ├── docker-compose.yml    # Container orchestration
 │   ├── requirements.txt      # Python dependencies
 │   ├── .env.example          # Clean configuration template
 │   └── run.sh                # Local launcher script
-├── wordpress-plugin/         # Storefront WordPress plugin source
-│   └── reco-engine/          # Plugin files (reco-engine.php, chat.js, reco.css)
+├── wordpress-plugin/         # Storefront WordPress plugin
+│   └── reco-engine/          # Plugin source (reco-engine.php, chat.js, reco.css)
 ├── pipeline/                 # Data exploration & SQL extraction pipeline
 │   ├── 0_explore.sql         # DB inspection scripts
 │   ├── 1_export.sql          # Clean export queries
 │   └── 2_extract.py          # Attribute normalization
-├── validation/               # 22 clinical benchmark profiles & test suite
+├── validation/               # Clinical benchmark profiles & test suite
 │   ├── baseline.json         # Reference benchmark snapshot
 │   └── validate.py           # Regression testing script
 ├── demo/                     # Standalone HTML/JS testing interface
-├── docs/                     # Technical specifications & architecture specs
-│   └── pfe-report-latex/     # Academic thesis LaTeX source (EPI Digital School)
-├── scripts/                  # Automation scripts (make_plugin.py, list_models.py)
+├── docs/                     # Technical specifications & architecture documentation
+├── scripts/                  # Developer automation (make_plugin.py, list_models.py)
 ├── Makefile                  # Developer CLI command suite
 ├── setup.sh                  # One-shot local environment setup
 └── test.sh                   # Comprehensive test suite
