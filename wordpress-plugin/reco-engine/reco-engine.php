@@ -137,6 +137,38 @@ function reco_settings_page() {
             </table>
             <?php submit_button(); ?>
         </form>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>Configuration Automatique de la Base de Données</h2>
+        <p class="description">
+            Le plugin a automatiquement détecté les identifiants de la base de données WordPress.
+            Copiez ce bloc directement dans votre fichier <code>service/.env</code> pour connecter le moteur Python en un clic :
+        </p>
+
+        <?php
+        global $wpdb;
+        $db_host_parts = explode(':', DB_HOST);
+        $db_host = $db_host_parts[0];
+        $db_port = isset($db_host_parts[1]) ? $db_host_parts[1] : '3306';
+        if ($db_host === 'localhost') {
+            $db_host = '127.0.0.1';
+        }
+        $env_snippet = "DB_HOST=" . esc_attr($db_host) . "\n"
+                     . "DB_PORT=" . esc_attr($db_port) . "\n"
+                     . "DB_USER=" . esc_attr(DB_USER) . "\n"
+                     . "DB_PASSWORD=" . esc_attr(DB_PASSWORD) . "\n"
+                     . "DB_NAME=" . esc_attr(DB_NAME) . "\n"
+                     . "WP_PREFIX=" . esc_attr($wpdb->prefix) . "\n"
+                     . "SITE_URL=" . esc_attr(get_site_url());
+        ?>
+
+        <div style="position: relative; max-width: 600px; margin-top: 15px;">
+            <textarea id="reco-env-box" readonly rows="8" style="width: 100%; font-family: monospace; background: #f0f0f1; padding: 10px;"><?php echo esc_textarea($env_snippet); ?></textarea>
+            <button type="button" class="button button-secondary" onclick="navigator.clipboard.writeText(document.getElementById('reco-env-box').value); alert('Copié dans le presse-papiers !');" style="margin-top: 8px;">
+                📋 Copier la configuration .env
+            </button>
+        </div>
     </div>
     <?php
 }

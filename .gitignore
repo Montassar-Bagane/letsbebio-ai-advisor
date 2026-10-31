@@ -28,16 +28,9 @@ validation_run.json
 *.sql.gz
 sql_new_*.sql
 
-# latex build artefacts
-docs/pfe-report-latex/*.aux
-docs/pfe-report-latex/*.log
-docs/pfe-report-latex/*.out
-docs/pfe-report-latex/*.toc
-docs/pfe-report-latex/*.lof
-docs/pfe-report-latex/*.lot
-docs/pfe-report-latex/*.fls
-docs/pfe-report-latex/*.fdb_latexmk
-docs/pfe-report-latex/*.synctex.gz
+# academic report — keep private / local
+docs/pfe-report-latex/
+*.pdf
 
 # os & editors
 .DS_Store
