@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+embeddings_cache.json
+.git
+.DS_Store
+Thumbs.db
