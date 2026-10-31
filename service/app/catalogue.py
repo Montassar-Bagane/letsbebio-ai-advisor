@@ -277,6 +277,51 @@ def build() -> dict:
     return snapshot
 
 
+def load_from_raw(raw: list, site_url: str = "") -> dict:
+    """Load products pushed directly over HTTP (zero database credentials mode)."""
+    t0 = time.time()
+    base_url = (site_url or settings.SITE_URL or "").rstrip("/")
+
+    enriched = []
+    for r in raw:
+        rec = extract(r)
+        # Use provided full image URL if available, else build from ID/path
+        if r.get("image_url"):
+            rec["image_url"] = r["image_url"]
+        elif r.get("image_path") and base_url:
+            rec["image_url"] = f"{base_url}/wp-content/uploads/{r['image_path']}"
+        elif r.get("image_id") and base_url:
+            rec["image_url"] = f"{base_url}/wp-content/uploads/{r['image_id']}"
+        else:
+            rec["image_url"] = None
+
+        rec["url"] = r.get("url") or (f"{base_url}/?p={r['id']}" if base_url else None)
+        enriched.append(rec)
+
+    _resolve_packs(enriched, {r["id"]: r for r in raw})
+
+    snapshot = {
+        "products": enriched,
+        "by_id": {e["id"]: e for e in enriched},
+        "packs": [e for e in enriched if e.get("is_pack")],
+        "built_at": datetime.now(timezone.utc).isoformat(),
+        "build_seconds": round(time.time() - t0, 2),
+        "error": None,
+        "building": False,
+    }
+    with _lock:
+        _state.update(snapshot)
+    log.info("catalogue loaded via direct HTTP sync: %d products in %.2fs",
+             len(enriched), snapshot["build_seconds"])
+
+    try:
+        semantic.build(enriched)
+    except Exception:
+        log.exception("semantic index build failed; keyword search still works")
+
+    return snapshot
+
+
 def get():
     with _lock:
         return dict(_state)

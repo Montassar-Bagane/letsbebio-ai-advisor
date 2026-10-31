@@ -494,6 +494,34 @@ def chat(req: ChatRequest):
     }
 
 
+class SyncRequest(BaseModel):
+    products: list[dict]
+    site_url: str | None = None
+    admin_token: str | None = None
+
+
+@app.post("/sync")
+def sync(req: SyncRequest):
+    """Direct push catalogue synchronization from WordPress.
+    
+    Allows zero-configuration deployment without opening MySQL port 3306
+    or configuring database credentials in the environment.
+    """
+    if settings.ADMIN_TOKEN and req.admin_token and req.admin_token != settings.ADMIN_TOKEN:
+        raise HTTPException(403, "Token invalide")
+    if not req.products:
+        raise HTTPException(400, "Aucun produit fourni")
+
+    st = catalogue.load_from_raw(req.products, req.site_url or "")
+    return {
+        "status": "ok",
+        "synced": len(st["products"]),
+        "packs": len(st["packs"]),
+        "seconds": st["build_seconds"],
+        "built_at": st["built_at"],
+    }
+
+
 @app.post("/admin/refresh", dependencies=[Depends(require_admin)])
 def refresh():
     st = catalogue.build()

@@ -48,12 +48,94 @@ add_action('admin_init', function () {
     ]);
 });
 
+function reco_get_store_products() {
+    global $wpdb;
+    $p = $wpdb->prefix;
+    $sql = "
+    SELECT p.ID AS id,
+           p.post_title AS name,
+           p.post_name AS slug,
+           p.post_excerpt AS short_desc,
+           LEFT(p.post_content, 4000) AS description,
+           pm_price.meta_value AS price,
+           pm_reg.meta_value AS regular_price,
+           pm_stock.meta_value AS stock,
+           pm_status.meta_value AS stock_status,
+           pm_sales.meta_value AS total_sales,
+           pm_rating.meta_value AS rating,
+           pm_thumb.meta_value AS image_id,
+           (SELECT GROUP_CONCAT(t.name SEPARATOR ', ')
+              FROM {$p}term_relationships tr
+              JOIN {$p}term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+              JOIN {$p}terms t ON t.term_id = tt.term_id
+             WHERE tr.object_id = p.ID AND tt.taxonomy = 'product_cat') AS categories
+      FROM {$p}posts p
+      LEFT JOIN {$p}postmeta pm_price ON pm_price.post_id = p.ID AND pm_price.meta_key = '_price'
+      LEFT JOIN {$p}postmeta pm_reg ON pm_reg.post_id = p.ID AND pm_reg.meta_key = '_regular_price'
+      LEFT JOIN {$p}postmeta pm_stock ON pm_stock.post_id = p.ID AND pm_stock.meta_key = '_stock'
+      LEFT JOIN {$p}postmeta pm_status ON pm_status.post_id = p.ID AND pm_status.meta_key = '_stock_status'
+      LEFT JOIN {$p}postmeta pm_sales ON pm_sales.post_id = p.ID AND pm_sales.meta_key = 'total_sales'
+      LEFT JOIN {$p}postmeta pm_rating ON pm_rating.post_id = p.ID AND pm_rating.meta_key = '_wc_average_rating'
+      LEFT JOIN {$p}postmeta pm_thumb ON pm_thumb.post_id = p.ID AND pm_thumb.meta_key = '_thumbnail_id'
+     WHERE p.post_type = 'product'
+       AND p.post_status = 'publish'
+     ORDER BY p.ID ASC
+    ";
+    $rows = $wpdb->get_results($sql, ARRAY_A);
+    if (!is_array($rows)) {
+        return [];
+    }
+    foreach ($rows as &$r) {
+        if (!empty($r['image_id'])) {
+            $r['image_url'] = wp_get_attachment_image_url($r['image_id'], 'full');
+        }
+        $r['url'] = get_permalink($r['id']);
+    }
+    return $rows;
+}
+
+function reco_sync_catalogue_with_api() {
+    $url = get_option('reco_api_url', '');
+    if (!$url) {
+        return ['error' => 'URL de l\'API non renseignée'];
+    }
+    $products = reco_get_store_products();
+    if (empty($products)) {
+        return ['error' => 'Aucun produit publié trouvé dans WooCommerce'];
+    }
+    $body = [
+        'products' => $products,
+        'site_url' => get_site_url(),
+    ];
+    $response = wp_remote_post(trailingslashit($url) . 'sync', [
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => wp_json_encode($body),
+        'timeout' => 45,
+    ]);
+    if (is_wp_error($response)) {
+        return ['error' => $response->get_error_message()];
+    }
+    $data = json_decode(wp_remote_retrieve_body($response), true);
+    return $data ?: ['status' => 'ok', 'synced' => count($products)];
+}
+
 function reco_settings_page() {
     if (!current_user_can('manage_options')) {
         return;
     }
     $url    = get_option('reco_api_url', '');
     $status = '';
+    $sync_notice = '';
+
+    if (isset($_POST['reco_sync_now']) && check_admin_referer('reco_sync_action')) {
+        $res = reco_sync_catalogue_with_api();
+        if (!empty($res['error'])) {
+            $sync_notice = '<div class="notice notice-error is-dismissible"><p><strong>Erreur de synchronisation :</strong> ' . esc_html($res['error']) . '</p></div>';
+        } else {
+            $count = isset($res['synced']) ? intval($res['synced']) : 0;
+            $sync_notice = '<div class="notice notice-success is-dismissible"><p><strong>Succès :</strong> ' . $count . ' produits synchronisés directement avec l\'IA !</p></div>';
+        }
+    }
 
     if ($url) {
         $res = wp_remote_get(trailingslashit($url) . 'health', ['timeout' => 8]);
@@ -67,25 +149,25 @@ function reco_settings_page() {
                     . intval($body['products']) . ' produits, '
                     . intval($body['packs']) . ' packs</span>';
             } else {
-                $status = '<span style="color:#a63d57">Réponse inattendue</span>';
+                $status = '<span style="color:#a63d57">Prêt — En attente de synchronisation</span>';
             }
         }
     }
     ?>
     <div class="wrap">
         <h1>Moteur de recommandation</h1>
+        <?php echo $sync_notice; ?>
         <form method="post" action="options.php">
             <?php settings_fields('reco_settings'); ?>
             <table class="form-table" role="presentation">
                 <tr>
-                    <th scope="row"><label for="reco_api_url">URL de l'API</label></th>
+                    <th scope="row"><label for="reco_api_url">URL de l'API (Render)</label></th>
                     <td>
                         <input name="reco_api_url" id="reco_api_url" type="url"
                                class="regular-text" value="<?php echo esc_attr($url); ?>"
-                               placeholder="https://exemple.com/api/reco">
+                               placeholder="https://letsbebio-ai-advisor.onrender.com">
                         <p class="description">
-                            Sans barre oblique finale. Le serveur WordPress doit
-                            pouvoir joindre cette adresse.
+                            Sans barre oblique finale. Exemple : <code>https://letsbebio-ai-advisor.onrender.com</code>
                         </p>
                     </td>
                 </tr>
@@ -114,8 +196,6 @@ function reco_settings_page() {
                         <p class="description">
                             Recommandé : le client obtient un conseil pendant
                             qu’il regarde les produits, sans quitter sa page.
-                            La conversation le suit d’une page à l’autre.
-                            Nécessite l’option ci-dessus.
                         </p>
                     </td>
                 </tr>
@@ -123,19 +203,24 @@ function reco_settings_page() {
                     <th scope="row">État</th>
                     <td><?php echo $status ?: '<em>Renseignez l’URL de l’API.</em>'; ?></td>
                 </tr>
-                <tr>
-                    <th scope="row">Utilisation</th>
-                    <td>
-                        <code>[moteur_recommandation]</code> — questionnaire
-                        guidé.<br>
-                        <code>[conseiller_beaute]</code> — conseiller
-                        conversationnel sur une page dédiée.<br>
-                        Pour une bulle sur tout le site, aucun code court
-                        n’est nécessaire : cochez l’option ci-dessous.
-                    </td>
-                </tr>
             </table>
             <?php submit_button(); ?>
+        </form>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>Synchronisation Automatique en 1 Clic (Sans identifiants SQL)</h2>
+        <p class="description">
+            Plus besoin de configurer de mot de passe de base de données ou d'ouvrir le port 3306 !<br>
+            Cliquez sur ce bouton : WordPress extrait tous vos produits et les envoie directement à votre API Render en HTTPS sécurisé.
+        </p>
+
+        <form method="post" action="" style="margin-top: 15px;">
+            <?php wp_nonce_field('reco_sync_action'); ?>
+            <input type="hidden" name="reco_sync_now" value="1">
+            <button type="submit" class="button button-primary button-hero" <?php disabled(empty($url)); ?>>
+                ⚡ Synchroniser le catalogue avec l'IA maintenant
+            </button>
         </form>
 
         <hr style="margin: 30px 0;">
